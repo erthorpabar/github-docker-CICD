@@ -1,0 +1,7 @@
+# 后端
+fastapi
+uvicorn
+
+# 测试
+pytest
+httpx

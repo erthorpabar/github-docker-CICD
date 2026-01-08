@@ -1,0 +1,105 @@
+
+# ====================================
+# GitHub Actions 工作流配置文件
+# 用途：自动运行 Python 单元测试
+# ====================================
+
+# 工作流名称
+name: CI CD - docker fastapi app
+
+# 触发条件
+on:
+  # 直接推送到 main 或 master 分支时触发
+  # 忽略 README.md 文件的更改
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - 'README.md'
+
+  # 在 feature分支 请求合并到 main 或 master 分支时触发
+  pull_request:
+    branches: [ main, master ]
+
+
+# 权限
+# 
+permissions:
+  id-token: write
+  contents: read
+
+
+
+
+# 要执行的任务
+jobs:
+  # 任务名称
+
+  # ——————————任务1
+  a01_CI:
+    # 运行环境
+    runs-on: ubuntu-latest
+    
+    # 执行步骤
+    steps:
+    # 1 拉取代码到环境中
+    - name: 1 Checkout code
+      uses: actions/checkout@v4
+    
+    # 2 安装 Python 环境
+    - name: 2 Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    # 3 安装依赖
+    - name: 3 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    # 4 运行单元测试
+    # pytest
+    # 1 自动找到以 test_ 开头 和 结尾 的文件和函数
+    # 2 不会追踪ipynb文件
+    - name: 4 Run tests
+      run: |
+        pytest
+
+  # ——————————任务2
+  a02_docker:
+    needs: a01_CI
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1 拉取到环境中
+    - name: 1 Checkout code
+      uses: actions/checkout@v3
+    
+    # 2 设置Docker buildx
+    - name: 2 Set up Docker Buildx 
+      uses: docker/setup-buildx-action@v2
+
+    # 3 登陆docker仓库
+    - name: 3 Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }} # 用户名 从GitHub Secrets中获取
+        password: ${{ secrets.DOCKER_PASSWORD }} # 密码 从GitHub Secrets中获取
+    
+    # 4 构建镜像
+    - name: 4 Build Docker image
+      id: s4                                      # 给这个步骤一个唯一的ID，用于后续引用
+      uses: docker/build-push-action@v4
+      with:
+        context: .                                # 构建上下文：当前目录（包含所有项目文件）
+        file: ./DockerFile                        # Dockerfile 的路径
+        tags: 1519202717/fastapi-server:latest    # 镜像标签：用户名/镜像名:版本 【需要与github中登陆的用户名一致】
+        push: true                                # 构建后自动推送到 Docker Hub
+    
+    # 5 输出镜像摘要信息
+    - name: 5 Image digest 
+      run: echo ${{ steps.s4.outputs.digest }}
+
+
+
+    
